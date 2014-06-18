@@ -7,6 +7,10 @@ The GitLab install is fairly complex.  But it looks to be worth it.
 This is a Vagrant configuration to install Ubuntu 14.04 (trusty) 64 bit, and then install 
 GitLab and all of its dependencies.
 
+The vagrant bootstrap.sh used to install and configure everything is a very slight adaptation of the instructions outlined here:
+https://github.com/gitlabhq/gitlabhq/blob/master/doc/install/installation.md
+
+
 
 Prerequisites 
 -------------
