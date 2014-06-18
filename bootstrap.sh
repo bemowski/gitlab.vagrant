@@ -22,6 +22,10 @@ sleep 10
 
 ###############################################################################
 # 0. Apply latest patches and updates.  install curl.
+
+# We are not using chef/pupet
+apt-get remove -y chef chef-zero puppet puppet-common 
+
 apt-get update
 
 apt-get upgrade -y
