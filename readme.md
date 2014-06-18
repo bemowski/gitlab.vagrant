@@ -24,9 +24,47 @@ How to use
 ----------
 
 1. Clone the this repo.
-2. Edit the top of bootstrap.sh - where you see a few environment variables.
+2. Edit the config.sh - where you see a few environment variables.
 3. vagrant up
 4. Wait a long time.
 5. profit.
+
+Post Installation 
+=================
+
+After the installation you should be able to hit your GitLab server on the private (host-only) ip created for the VM on port 80.  
+
+You can login as admin using:
+   admin@local.host / 5iveL!fe
+
+You will be required to change that password on login to something longer than 8 characters.
+
+Adding Users
+------------
+As administrator you can add users.  You cannot set their passwords - they have to be emailed to the users.  Your postfix install (Step 1) should support outbound smtp.
+
+Uploading an existing git project
+---------------------------------
+
+Create the project as a user or as admin 
+
+
+Log Files
+---------
+Most GitLab related logs re in /home/git/gitlab/log 
+
+Nginx's logs are in /var/log/nginx
+
+
+
+Feedback
+========
+
+Send feedback / comments to bemowski@yahoo.com.  
+
+Useful Pull Requests are welcome.
+
+
+
 
 

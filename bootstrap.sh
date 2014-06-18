@@ -1,10 +1,4 @@
-
-
-apt-get update
-
-apt-get upgrade -y
-
-apt-get -y install curl
+#!/bin/bash
 
 
 # A Gitlab startup script for Vagrant, based on: 
@@ -15,14 +9,27 @@ apt-get -y install curl
 #login.........admin@local.host
 #password......5iveL!fe
 
+source /vagrant/config.sh
 
-export MYSQL_ROOT_PASSWORD=toor
+echo "Installing GitLab."
+echo "   MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
+echo "   MYHOST=$MYHOST"
+echo "   SIGNUP_ENABLED=$SIGNUP_ENABLED"
 
-# Can be a fqdn, or "localhost" or an ip address... depending on how you will use GitLab
-#    This will be used to send links to users to login.  
-#    This will be embeded in sample commands to push/pull from the repo.
-export MYHOST=gitlab.pss.asurion.com
+echo "Installation will begin in 10s"
+sleep 10
 
+
+###############################################################################
+# 0. Apply latest patches and updates.  install curl.
+apt-get update
+
+apt-get upgrade -y
+
+apt-get -y install curl
+
+
+###############################################################################
 # 1. Packages / Dependencies
 apt-get -y install sudo 
 
@@ -31,52 +38,85 @@ sudo update-alternatives --set editor /usr/bin/vim.basic
 
 apt-get install -y build-essential zlib1g-dev libyaml-dev libssl-dev libgdbm-dev libreadline-dev libncurses5-dev libffi-dev curl openssh-server redis-server checkinstall libxml2-dev libxslt-dev libcurl4-openssl-dev libicu-dev logrotate python-docutils
 
+# Install git.  Based on our 14.04 vm, the git version available via the package manager
+# has an acceptable version - greater than 1.7.10
+apt-get install -y git-core
+git --version
+
 # Postfix wants to configure some stuff during install.  disable, but this means we may need to 
 # tweak postfix after install.
 # I am redirecting the output of the postfix install because it buggers the install screen 
 # with an inteeractive ncurses app - which is ignored anyway.
 export DEBIAN_FRONTEND=noninteractive
-echo "Installing Postfix non-interactive"
-sudo apt-get install -y postfix 2>&1>/dev/null
-echo "Done installing postfix"
+
+# For posterity - the below does not stop the ncurses screen from coming up and buggering the terminal
+# window.  Redirecting output to /dev/null means that if the postfix install fails, we really won't know
+# why.  But if we don't redirect to /dev/null - the ncurses screen screws the terminal emulator - and you 
+# cannot see why anything else failed.  I guess a final option would be to redirect postfix intstall to 
+# a file and check the exit code from the installer.
+# sudo apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" postfix
+# apt-get install -y postfix >/tmp/postfix.install.log 2>&1 
+# Final verdict: pipe to strings to prevent screwing of console.
+apt-get install -y postfix |strings
+
 
 # simple setup, relay for no one. Allows local GitLab to send emails.
 echo "# http://www.postfix.org/STANDARD_CONFIGURATION_README.html#stand_alone">/etc/postfix/main.cf
 echo "mynetworks_style = host">/etc/postfix/main.cf
 echo "relay_domains =">/etc/postfix/main.cf
 
+echo "Postfix main.cf: "
+cat /etc/postfix/main.cf
+
+###############################################################################
 # 2. Ruby
 apt-get -y remove ruby
 
-mkdir /tmp/ruby && cd /tmp/ruby
-curl --progress ftp://ftp.ruby-lang.org/pub/ruby/2.0/ruby-2.0.0-p481.tar.gz | tar xz
-cd ruby-2.0.0-p481
-./configure --disable-install-rdoc
-make
-sudo make install
+if [ ! -d /tmp/ruby ]
+then 
+	mkdir /tmp/ruby && cd /tmp/ruby
+	curl ftp://ftp.ruby-lang.org/pub/ruby/2.0/ruby-2.0.0-p481.tar.gz | tar xz
+	cd ruby-2.0.0-p481
+	./configure --disable-install-rdoc
+	make
+	sudo make install
 
-gem install bundler --no-ri --no-rdoc
+	gem install bundler --no-ri --no-rdoc
+else
+	echo "Ruby is up to date."
+fi
 
+
+
+###############################################################################
 # 3.System Users
 adduser --disabled-login --gecos 'GitLab' git
 
+###############################################################################
 # 4. Database 
 
 # Opting for mysql here.   
 # https://github.com/gitlabhq/gitlabhq/blob/master/doc/install/database_mysql.md
-sudo apt-get install -y mysql-server mysql-client libmysqlclient-dev
+
+# As with postfix, the standard mysql package install uses an ncurses install script to ask the 
+# installer to set a password.  We don't want that.  
+export DEBIAN_FRONTEND=noninteractive
+# the pipe to 'strings' prevents ncurses intall ui from buggering the terminal.
+apt-get install -y  mysql-server mysql-client libmysqlclient-dev |strings
+
 mysql --version
 
 # set root password.
 mysqladmin -u root password $MYSQL_ROOT_PASSWORD
 
-echo "CREATE USER 'git'@'localhost' IDENTIFIED BY 'git';" > /tmp/mysql.git.create
+echo "CREATE USER IF NOT EXISTS 'git'@'localhost' IDENTIFIED BY 'git';" > /tmp/mysql.git.create
 echo "SET storage_engine=INNODB;" >> /tmp/mysql.git.create
 echo "CREATE DATABASE IF NOT EXISTS gitlabhq_production DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;" >> /tmp/mysql.git.create
 echo "GRANT SELECT, LOCK TABLES, INSERT, UPDATE, DELETE, CREATE, DROP, INDEX, ALTER ON gitlabhq_production.* TO 'git'@'localhost';" >> /tmp/mysql.git.create
 
 mysql -u root -p$MYSQL_ROOT_PASSWORD < /tmp/mysql.git.create
 
+###############################################################################
 # 5. GitLab
 cd /home/git
 sudo -u git -H git clone https://gitlab.com/gitlab-org/gitlab-ce.git -b 6-9-stable gitlab
@@ -84,10 +124,12 @@ cd /home/git/gitlab
 
 
 # FIXME: Sset some settings here:
-cp config/gitlab.yml.example config/gitlab.yml
+sudo -u git -H cp config/gitlab.yml.example config/gitlab.yml
+sudo -u git sed -i 's/\#\ signup_enabled: true/signup_enabled\:\ '"$SIGNUP_ENABLED"'/g' config/gitlab.yml
+
 # set 
 #       host: localhost
-sed -i 's/localhost/'"$MYHOST"'/g' config/gitlab.yml
+sudo -u git -H sed -i 's/localhost/'"$MYHOST"'/g' config/gitlab.yml
 
 # Make sure GitLab can write to the log/ and tmp/ directories
 sudo chown -R git log/
@@ -125,7 +167,8 @@ sudo -u git -H git config --global core.autocrlf input
 # Configure database
 #sudo -u git cp config/database.yml.mysql config/database.yml
 sudo -u git sed 's/secure\ password/git/g' config/database.yml.mysql >config/database.yml
-sudo -u git -H chmod o-rwx config/database.yml
+chown -R git:git config
+chmod o-rwx config/database.yml
 
 # Install GEMS
 cd /home/git/gitlab
@@ -158,6 +201,7 @@ sudo -u git -H bundle exec rake assets:precompile RAILS_ENV=production
 # start
 /etc/init.d/gitlab restart
 
+###############################################################################
 # 6. nginx
 sudo apt-get install -y nginx
 cd /home/git/gitlab
