@@ -46,7 +46,7 @@ As administrator you can add users.  You cannot set their passwords - they have 
 Uploading an existing git project
 ---------------------------------
 
-Create the project as a user or as admin 
+Create the project as a user or as admin.  Follow instructions for pushing.
 
 
 Log Files

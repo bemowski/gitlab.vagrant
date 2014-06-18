@@ -109,7 +109,7 @@ mysql --version
 # set root password.
 mysqladmin -u root password $MYSQL_ROOT_PASSWORD
 
-echo "CREATE USER IF NOT EXISTS 'git'@'localhost' IDENTIFIED BY 'git';" > /tmp/mysql.git.create
+echo "CREATE USER 'git'@'localhost' IDENTIFIED BY 'git';" > /tmp/mysql.git.create
 echo "SET storage_engine=INNODB;" >> /tmp/mysql.git.create
 echo "CREATE DATABASE IF NOT EXISTS gitlabhq_production DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;" >> /tmp/mysql.git.create
 echo "GRANT SELECT, LOCK TABLES, INSERT, UPDATE, DELETE, CREATE, DROP, INDEX, ALTER ON gitlabhq_production.* TO 'git'@'localhost';" >> /tmp/mysql.git.create
